@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+   <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v6.6.0/css/all.css">
+   <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Exo:ital,wght@0,100..900;1,100..900&family=Orbitron:wght@400..900&display=swap" rel="stylesheet">
+  <title>Chat app 3</title>
+  <style>
+    body{
+      background-color:#1e1e1e;
+      color:white;
+      margin:0;
+      height:100vh;
+      font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+          }
+    #main{
+      width:100%;
+      height:100vh;
+      overflow:hidden;
+    }
+    #main #input-div{
+      width:97%;
+      height:50px;
+      margin-left:8px;
+      background-color: #282828; 
+      box-shadow: 8px 8px 16px #101010, -8px -8px 16px #383838;
+      border-radius:40px;
+      box-sizing: border-box;
+      position: fixed;
+      bottom: 10px;
+      left:0;
+      display:flex;
+    }
+    #input-div input{
+      width:88%;
+      height:100%;
+      padding:12px;
+      border: none;
+      outline: none;
+      box-sizing: border-box;
+      color: white;
+      background:transparent;
+    }
+    #input-div button{
+      width:40px;
+      height:40px;
+      border: none;
+      margin-top:5px;
+      border-radius: 50%;
+      background-color:lightgreen;
+    }
+   
+ #chat-room {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; 
+  padding: 0 10px;
+  height: 90vh;
+  overflow-y: scroll;
+  background-color: #1e1e1e;
+}
+    
+    .message{
+      width:200px;
+      height:auto;
+      background-color: #282828; 
+      border-radius:5px;
+      margin: 0;
+      box-sizing: border-box;
+      }
+    .user-info{
+      display:flex;
+      background-color:black;
+      border-radius:5px;
+    }
+    .user-logo{
+      width:40px;
+      height:40px;
+      border-radius:50%;
+      margin-top: 5px;
+      margin-left:5px;
+      display:flex;
+      align-items: center;
+      justify-content: center;
+      background-color:lightgreen;
+    }
+    .user-name{
+      padding-left:5px;
+      font-family:"Orbitron",sans-serif;
+    }
+    .time-stamp{
+       color:lightgreen;
+       margin-left:auto;
+       padding-right: 5px;
+    }
+    .message-own{
+      width:200px;
+      height:auto;
+      background-color: #282828; 
+      border-radius:5px;
+      margin-left:auto;
+      margin-right:2px;
+    }
+    .message-txt{
+      margin:0;
+      padding: 10px;
+    }
+   
+    #welcome-text{
+      font-family:"Orbitron",sans-serif;
+      text-align: center;
+    }
+    #btn-div{
+      display:flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #enter-chat{
+      width:auto;
+      height:40px;
+      border-radius:5px;
+      border: none;
+     background-color:lightgreen;
+    }
+    </style>
+   </head>
+<body>
+  <div id ="main">
+    <div id="chat-room">
+   
+    </div>
+  <div id ="input-div">
+    <input type="text" id ="input"placeholder="Type here to send">
+    <button id ="send"><i class="fa-solid fa-paper-plane-top"></i></button>
+  </div>
+  </div>
+  <script type ="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+  import { getDatabase, ref, push, set, onChildAdded,child, get} from "https://www.gstatic.com/firebasejs/10.12.3/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwH1cr5UvA7KVLKPzD_UswQuUIRmwR3YY",
+            authDomain: "chat-application-6cc2b.firebaseapp.com",
+            projectId: "chat-application-6cc2b",
+            storageBucket: "chat-application-6cc2b.appspot.com",
+            messagingSenderId: "805085603904",
+            appId: "1:805085603904:web:e1b4d0e42ec372d3dd17a5",
+            databaseURL: "https://chat-application-6cc2b-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+        
+         const API_KEY = 'WcvyzXYhe0DRPsqfr0eizg==l5tsGaMERa80CQAM';
+ function checkProfanity(text,callback) {
+            const url = `https://api.api-ninjas.com/v1/profanityfilter?text=${encodeURIComponent(text)}`;
+
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-Api-Key': API_KEY,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response =>{ 
+             if (!response.ok) {
+            throw new Error(`Network response was not ok: ${response.statusText}`);
+        }
+        return response.json(); 
+            })
+            .then(data => {
+                callback(data.has_profanity);
+            })
+            .catch(error => {
+                callback(false);
+            });
+        }
+        
+        var firebaseapp = initializeApp(firebaseConfig);
+        var database = getDatabase(firebaseapp);
+        var messageref = ref(database,"messages")
+        var bannedusers = ref(database,"bannedusers") 
+        
+        var name = prompt("Please enter your name");
+        
+   let isBanned = false;
+      get(child(bannedusers, name)).then((snapshot) => {
+      if (snapshot.exists()) {
+        const date = new Date();
+              const currentime = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+
+          alert("You are already banned! your messages will not receive our server!") 
+          return;
+      } 
+      else {
+          document.getElementById("send").addEventListener("click", () => {
+            if(isBanned){
+              alert("You are banned already! your messages will not reach our server!")
+            }
+              const message = document.getElementById("input").value;
+              
+            const date = new Date();
+              const currentime = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+
+   function containsHTML(text) {
+    const htmlPattern = /<\/?[a-z][\s\S]*>/i;
+    return htmlPattern.test(text);
+    }
+              if(containsHTML(message)){
+                isBanned = true;
+                set(child(bannedusers, name), { sender: name, message });
+            set(push(messageref), {
+                sender: "Vidbot",
+                message: `${name},HAHA! nice try using HTML or inappropriate content is not allowed. You are banned!`,
+                time: currentime
+            });
+            alert("You are banned for using HTML content in your message.");
+            return;
+              }
+function containsLink(text) {
+    const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
+    return urlRegex.test(text);
+}
+           if(containsLink(message)){
+             isBanned = true;
+             set(child(bannedusers, name), { sender: name, message });
+          set(push(messageref), {
+                sender: "Vidbot",
+                message: `${name}, Links are not allowed. You are banned!`, 
+                time: currentime
+            });
+            
+            alert("you are banned for sending a link!")
+            
+            return;
+           }
+           function isTooLong(text) {
+           return text.length > 250; 
+           }
+           if(isTooLong(message)){
+             set(push(messageref), {
+                sender: "Vidbot",
+                message: `${name},We are sorry but long conversations are not allowed!`, 
+                time: currentime
+            });
+            return;
+           }
+        
+              if (message) {
+                
+                  checkProfanity(message, (isProfane) => {
+                      if (isProfane) {
+                        isBanned = true;
+                          set(child(bannedusers, name), { sender: name, message });
+                          set(push(messageref),{sender:"Vidbot",message:`${name},Inappropriate language will result in ban. Be respectful to everyone!`,time:currentime})
+                          
+                      alert("You are banned for using HTML content in your message.");
+                      
+                      return;
+                      }
+                      set(push(messageref), { sender: name, message, time:currentime});
+                      document.getElementById("input").value = "";
+                  });
+              }
+          });
+      }
+  });
+  
+        onChildAdded(messageref,(snapshot)=>{
+          const {sender,message,time} = snapshot.val()
+          
+          var icon ="";
+          if(sender == "Vidbot"){
+            icon = '<i class="fa-duotone fa-solid fa-robot"></i>'
+          }
+          else{
+            icon = '<i class="fa-duotone fa-solid fa-user"></i>'
+          }
+          var div = document.createElement("div");
+          div.innerHTML=`
+             <div class ="message">
+        <div class ="user-info">
+        <div class ="user-logo">${icon}</div>
+        <p class ="user-name">${sender}</p>
+        <p class ="time-stamp">${time}</p>
+        </div>
+        <p class ="message-txt">${message}</p>
+      </div>
+          `;
+          if(sender == name){
+            div.classList.add("message-own")
+          }
+          else{
+            div.classList.add("message")
+          }
+          var chatRoom = document.getElementById("chat-room");
+          chatRoom.appendChild(div);
+
+const observer = new MutationObserver(() => {
+  chatRoom.scrollTop = chatRoom.scrollHeight;
+});
+
+observer.observe(chatRoom, { childList: true });
+        })
+
+  </script>
+  <script>
+  var chatRoom = document.getElementById("chat-room");
+  console.log(chatRoom)
+  console.log("ScrollHeight:", chatRoom.scrollHeight);
+console.log("ClientHeight:", chatRoom.clientHeight);
+console.log("ScrollTop before:", chatRoom.scrollTop);
+
+chatRoom.scrollTop = chatRoom.scrollHeight;
+
+console.log("ScrollTop after:", chatRoom.scrollTop);
+
+        function enterchatroom() {
+          document.getElementById('welcome-page').style.display ='none';
+          document.getElementById('main').style.display ='block';
+        }
+  </script>
+</body>
+</html>
